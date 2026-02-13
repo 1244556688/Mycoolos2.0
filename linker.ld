@@ -1,23 +1,27 @@
 ENTRY(start)
+OUTPUT_FORMAT(elf32-i386)
 
 SECTIONS {
     . = 1M;
 
-    .text : {
-        /* 確保 Multiboot Header 放在檔案的最前面 */
+    .text BLOCK(4K) : ALIGN(4K) {
         KEEP(*(.multiboot))
         *(.text)
     }
 
-    .rodata : {
+    .rodata BLOCK(4K) : ALIGN(4K) {
         *(.rodata)
     }
 
-    .data : {
+    .data BLOCK(4K) : ALIGN(4K) {
         *(.data)
     }
 
-    .bss : {
+    .bss BLOCK(4K) : ALIGN(4K) {
+        *(COMMON)
         *(.bss)
+        /* 在這裡定義一個符號代表 BSS 結尾，也就是緩衝區起點 */
+        _backbuffer_start = .;
+        . += 0x400000; /* 預留 4MB 給 1024x768 畫面 */
     }
 }
