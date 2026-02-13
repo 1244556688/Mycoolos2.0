@@ -1,0 +1,52 @@
+name: Build MyOS ISO
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y nasm gcc-multilib binutils xorriso mtools grub-pc-bin grub-common
+
+    - name: Compile MyOS
+      run: |
+        # 這裡使用標準的 gcc -m32，因為 Ubuntu 環境支援多架構編譯
+        nasm -f elf32 multiboot_header.asm -o multiboot_header.o
+        nasm -f elf32 boot.asm -o boot.o
+        gcc -m32 -fno-builtin -fno-stack-protector -nostdlib -nodefaultlibs -c kernel.c -o kernel.o
+        ld -m elf_i386 -T linker.ld -o myos.bin multiboot_header.o boot.o kernel.o
+
+    - name: Prepare ISO directory
+      run: |
+        mkdir -p iso_root/boot/grub
+        cp myos.bin iso_root/boot/
+        # 假設你的 grub.cfg 已經在專案中，或是直接在這裡產生
+        cat << EOF > iso_root/boot/grub/grub.cfg
+        set timeout=0
+        set default=0
+        menuentry "MyOS" {
+            multiboot /boot/myos.bin
+            boot
+        }
+        EOF
+
+    - name: Create ISO
+      run: |
+        grub-mkrescue -o myos.iso iso_root
+
+    - name: Upload ISO Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MyOS-ISO
+        path: myos.iso
